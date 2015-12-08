@@ -8,7 +8,17 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 #include <QDebug>
+
+//Structures
+struct ReadingStruct
+{
+    qint32 Timestamp;
+    float Reading;
+    char Type;
+};
 
 //Defines
 #define Hostname "192.168.1.94" //Internal
@@ -23,6 +33,7 @@ const char State_WebUpload = 4;
 //const char State_ = 3;
 //const char State_ = 3;
 //const char State_ = 3;
+const QString Version = "v0.05";
 
 namespace Ui
 {
@@ -52,6 +63,12 @@ private:
     QTimer TimeoutTimer; //
     char ProgramState; //
     QByteArray TempDataBuffer; //
+    QNetworkAccessManager *NetworkManager; //
+    QSslCertificate *SSLCertificate; //
+
+    //TEMP
+    ReadingStruct *TempReadings; //
+    int TempReadingCount; //
 };
 
 #endif // MAINWINDOW_H

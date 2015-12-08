@@ -1,21 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QRegularExpression>
-#include <QRegularExpressionMatch>
-
-QNetworkAccessManager *gnmManager;
-
-struct ReadingStruct
-{
-    qint32 Timestamp;
-    float Reading;
-    char Type;
-};
-
-ReadingStruct *TempReadings;
-int TempReadingCount;
-
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     //
@@ -23,6 +8,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     //
     this->RefreshSerial();
+
+    //
+    this->statusBar()->showMessage(QString("UH eHealth Uploader ").append(Version));
 
     //
     TimeoutTimer.setSingleShot(true);
@@ -34,15 +22,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 
     //Setup QNetwork for Online XCompiler
-    gnmManager = new QNetworkAccessManager();
-    connect(gnmManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinished(QNetworkReply*)));
-    connect(gnmManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)), this, SLOT(sslErrors(QNetworkReply*, QList<QSslError>)));
+    NetworkManager = new QNetworkAccessManager();
+    connect(NetworkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinished(QNetworkReply*)));
+    connect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)), this, SLOT(sslErrors(QNetworkReply*, QList<QSslError>)));
+
+    //
+    QFile certFile(":/Server.pem");
+    if (certFile.open(QIODevice::ReadOnly))
+    {
+        //Load certificate data
+        SSLCertificate = new QSslCertificate(certFile.readAll());
+        QSslSocket::addDefaultCaCertificate(*SSLCertificate);
+        certFile.close();
+    }
 }
 
 MainWindow::~MainWindow()
 {
     //
     disconnect(&TimeoutTimer, SIGNAL(timeout()));
+    disconnect(NetworkManager, SIGNAL(finished(QNetworkReply*)));
+    disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*,QList<QSslError>)));
 
     //
     delete ui;
@@ -55,6 +55,7 @@ void MainWindow::RefreshSerial()
 
     foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
     {
+        //
         ui->combo_Ports->addItem(info.portName());
     }
 }
@@ -170,10 +171,6 @@ void MainWindow::SerialDataWaiting()
                     //
                     ++i;
                     baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Type)).append("&R").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Timestamp)).append("&"));
-
-                    //T, type
-                    //R, reading
-                    //A, at
                 }
 
                 //
@@ -181,7 +178,7 @@ void MainWindow::SerialDataWaiting()
                 QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(ui->edit_Token->text())).append("&RD=").append(QString::number(TempReadingCount))));
                 nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
                 nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
-                gnmManager->post(nrThisReq, baPostData);
+                NetworkManager->post(nrThisReq, baPostData);
                 qDebug() << baPostData;
 
                 //
@@ -201,8 +198,6 @@ void MainWindow::SerialDataWaiting()
                 }
 
                 //
-
-                //
                 TempDataBuffer.remove(0, SegEnd+2);
             }
         }
@@ -218,7 +213,7 @@ void MainWindow::on_btn_Login_clicked()
 {
     //Get token from cloud server
     ProgramState = State_WebLogin;
-    gnmManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())))));
+    NetworkManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())))));
 }
 
 void MainWindow::replyFinished(QNetworkReply* nrReply)
@@ -265,10 +260,10 @@ void MainWindow::replyFinished(QNetworkReply* nrReply)
 void MainWindow::sslErrors(QNetworkReply* nrReply, QList<QSslError> lstSSLErrors)
 {
     //
-    //if (sslcLairdSSL != NULL && nrReply->sslConfiguration().peerCertificate() == *sslcLairdSSL)
-    //{
+    if (SSLCertificate != NULL && nrReply->sslConfiguration().peerCertificate() == *SSLCertificate)
+    {
         //Server certificate matches
-    qDebug() << "cert error";
+        qDebug() << "cert error";
         nrReply->ignoreSslErrors(lstSSLErrors);
-    //}
+    }
 }

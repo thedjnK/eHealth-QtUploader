@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>UH eHealth Uploader</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QComboBox" name="combo_Ports">
@@ -123,6 +123,15 @@
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>edit_Username</tabstop>
+  <tabstop>edit_Password</tabstop>
+  <tabstop>btn_Login</tabstop>
+  <tabstop>edit_Token</tabstop>
+  <tabstop>combo_Ports</tabstop>
+  <tabstop>btn_Connect</tabstop>
+  <tabstop>edit_Log</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
