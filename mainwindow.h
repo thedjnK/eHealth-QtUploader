@@ -10,8 +10,19 @@
 #include <QNetworkReply>
 #include <QDebug>
 
+//Defines
 #define Hostname "192.168.1.94" //Internal
 //#define Hostname "ehealth.noip.me" //External
+
+//Constants
+const char State_DevID = 1;
+const char State_DevReadings = 2;
+const char State_WebLogin = 3;
+const char State_WebUpload = 4;
+//const char State_ = 3;
+//const char State_ = 3;
+//const char State_ = 3;
+//const char State_ = 3;
 
 namespace Ui
 {
@@ -39,7 +50,7 @@ private:
     void RefreshSerial();
     QSerialPort MainSerialPort; //
     QTimer TimeoutTimer; //
-    int ProgramState; //
+    char ProgramState; //
     QByteArray TempDataBuffer; //
 };
 

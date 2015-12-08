@@ -1,7 +1,20 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
+
 QNetworkAccessManager *gnmManager;
+
+struct ReadingStruct
+{
+    qint32 Timestamp;
+    float Reading;
+    char Type;
+};
+
+ReadingStruct *TempReadings;
+int TempReadingCount;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
@@ -73,7 +86,7 @@ void MainWindow::on_btn_Connect_clicked()
                 //MainSerialPort.setRequestToSend(ui->check_RTS->isChecked());
 
             //Send wakeup message and start timeout timer
-            ProgramState = 1;
+            ProgramState = State_DevID;
             TempDataBuffer.clear();
             TimeoutTimer.start();
             MainSerialPort.write("ID\r\n");
@@ -111,7 +124,7 @@ void MainWindow::SerialDataWaiting()
     QByteArray SerialData = MainSerialPort.readAll();
 
     //Newline found
-    if (ProgramState == 1)
+    if (ProgramState == State_DevID)
     {
         //Device ID
         TempDataBuffer.append(SerialData);
@@ -119,15 +132,19 @@ void MainWindow::SerialDataWaiting()
         {
             //
             ui->edit_Log->appendPlainText(QString("Device: ").append(TempDataBuffer.left(TempDataBuffer.size()-2)));
-            ProgramState = 2;
+            ProgramState = State_DevReadings;
             TempDataBuffer.clear();
             TimeoutTimer.start();
             MainSerialPort.write("Read\r\n");
+
+            TempReadings = new ReadingStruct[10];
+            TempReadingCount = 0;
         }
     }
-    else if (ProgramState == 2)
+    else if (ProgramState == State_DevReadings)
     {
         //Data reading
+        QRegularExpression abc("([0-9])+\\|([0-9])+\\|([0-9\\.])+\\|([0-9])+");
         TempDataBuffer.append(SerialData);
         bool Finished = false;
         while (TempDataBuffer.contains("\r\n") == true)
@@ -144,9 +161,47 @@ void MainWindow::SerialDataWaiting()
                 ui->edit_Log->appendPlainText("Finished.");
                 Finished = true;
                 TempDataBuffer.clear();
+
+                //
+                int i = 0;
+                QByteArray baPostData;
+                while (i < TempReadingCount)
+                {
+                    //
+                    ++i;
+                    baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Type)).append("&R").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Timestamp)).append("&"));
+
+                    //T, type
+                    //R, reading
+                    //A, at
+                }
+
+                //
+                ProgramState = State_WebUpload;
+                QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(ui->edit_Token->text())).append("&RD=").append(QString::number(TempReadingCount))));
+                nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+                nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+                gnmManager->post(nrThisReq, baPostData);
+                qDebug() << baPostData;
+
+                //
+                delete[] TempReadings;
             }
             else
             {
+                //
+                QRegularExpressionMatch qqq = abc.match(TempDataBuffer.left(SegEnd));
+                if (qqq.hasMatch() == true)
+                {
+                    qDebug() << "yee";
+                    TempReadings[TempReadingCount].Reading = qqq.captured(3).toFloat();
+                    TempReadings[TempReadingCount].Timestamp = qqq.captured(2).toInt();
+                    TempReadings[TempReadingCount].Type = qqq.captured(4).toInt();
+                    ++TempReadingCount;
+                }
+
+                //
+
                 //
                 TempDataBuffer.remove(0, SegEnd+2);
             }
@@ -162,8 +217,8 @@ void MainWindow::SerialDataWaiting()
 void MainWindow::on_btn_Login_clicked()
 {
     //Get token from cloud server
+    ProgramState = State_WebLogin;
     gnmManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())))));
-    ProgramState = 5;
 }
 
 void MainWindow::replyFinished(QNetworkReply* nrReply)
@@ -178,7 +233,7 @@ void MainWindow::replyFinished(QNetworkReply* nrReply)
     {
         //OK
         qDebug() << "OK:";
-        if (ProgramState == 5)
+        if (ProgramState == State_WebLogin)
         {
             QByteArray RecData = nrReply->readAll();
             qDebug() << "Token response:";
@@ -198,6 +253,10 @@ void MainWindow::replyFinished(QNetworkReply* nrReply)
                 //Unknown
                 qDebug() << "??";
             }
+        }
+        else if (ProgramState == State_WebUpload)
+        {
+            qDebug() << "Upload response: " << nrReply->readAll();
         }
     }
     nrReply->deleteLater();
