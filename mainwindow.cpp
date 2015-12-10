@@ -213,7 +213,13 @@ void MainWindow::on_btn_Login_clicked()
 {
     //Get token from cloud server
     ProgramState = State_WebLogin;
-    NetworkManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())))));
+
+    QByteArray baPostData = QString("UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())).toUtf8();
+    QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/token.php")));
+    nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+    nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+    NetworkManager->post(nrThisReq, baPostData);
+//    NetworkManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(
 }
 
 void MainWindow::replyFinished(QNetworkReply* nrReply)
