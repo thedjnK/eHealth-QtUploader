@@ -42,7 +42,7 @@ MainWindow::~MainWindow()
     //
     disconnect(&TimeoutTimer, SIGNAL(timeout()));
     disconnect(NetworkManager, SIGNAL(finished(QNetworkReply*)));
-    disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*,QList<QSslError>)));
+    disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)));
 
     //
     delete ui;
@@ -179,6 +179,7 @@ void MainWindow::SerialDataWaiting()
                 nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
                 nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
                 NetworkManager->post(nrThisReq, baPostData);
+                ui->label_Loading->setText("LOADING...");
                 qDebug() << baPostData;
 
                 //
@@ -219,12 +220,14 @@ void MainWindow::on_btn_Login_clicked()
     nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
     nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
     NetworkManager->post(nrThisReq, baPostData);
+    ui->label_Loading->setText("LOADING...");
 //    NetworkManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(
 }
 
 void MainWindow::replyFinished(QNetworkReply* nrReply)
 {
     //
+    ui->label_Loading->setText("");
     if (nrReply->error() != QNetworkReply::NoError)
     {
         //Error
