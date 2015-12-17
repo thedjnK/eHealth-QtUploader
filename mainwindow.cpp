@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QFile>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
@@ -64,7 +65,7 @@ void MainWindow::on_btn_Connect_clicked()
 {
     //Connect button clicked
     ui->combo_Ports->setEnabled(false);
-    ui->btn_Connect->setEnabled(false);
+//    ui->btn_Connect->setEnabled(false);
 
     if (ui->combo_Ports->currentText().length() > 0)
     {
@@ -76,7 +77,7 @@ void MainWindow::on_btn_Connect_clicked()
         MainSerialPort.setParity(QSerialPort::NoParity);
         MainSerialPort.setFlowControl(QSerialPort::NoFlowControl); //QSerialPort::HardwareControl
 
-        if (MainSerialPort.open(QIODevice::ReadWrite))
+        if (0 == 1 && MainSerialPort.open(QIODevice::ReadWrite))
         {
             //Successful
 
@@ -96,6 +97,70 @@ void MainWindow::on_btn_Connect_clicked()
         {
             //Error whilst opening
         }
+
+//TEST
+                //Data reading
+        TempReadings = new ReadingStruct[10];
+        TempReadingCount = 0;
+                QRegularExpression abc("^([0-9]+)\\|([0-9]+)\\|([0-9\\.]+)\\|([0-9]+)$");
+                TempDataBuffer = QString("1|130948583|13.8|5\r\n2|130948585|5|5\r\n3|130948588|7.2|5\r\n4|130948663|150|5\r\n5|130948880|10|5\r\n6|130949011|2|5\r\n7|130949130|0.4|5\r\nEOF\r\n").toUtf8();
+                bool Finished = false;
+                while (TempDataBuffer.contains("\r\n") == true)
+                {
+                    //
+                    int SegEnd = TempDataBuffer.indexOf("\r\n");
+
+                    //
+                    ui->edit_Log->appendPlainText(QString("Segment: ").append(TempDataBuffer.left(SegEnd)));
+
+                    if (TempDataBuffer.left(SegEnd) == "EOF")
+                    {
+                        //
+                        ui->edit_Log->appendPlainText("Finished.");
+                        Finished = true;
+                        TempDataBuffer.clear();
+
+                        //
+                        int i = 0;
+                        QByteArray baPostData;
+                        while (i < TempReadingCount)
+                        {
+                            //
+                            baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Type)).append("&R").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Timestamp)).append("&"));
+                            ++i;
+                        }
+
+                        //
+                        ProgramState = State_WebUpload;
+                        QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(ui->edit_Token->text())).append("&RD=").append(QString::number(TempReadingCount))));
+                        nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+                        nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+                        NetworkManager->post(nrThisReq, baPostData);
+                        ui->label_Loading->setText("LOADING...");
+                        qDebug() << baPostData;
+
+                        //
+                        delete[] TempReadings;
+                    }
+                    else
+                    {
+                        //
+                        QRegularExpressionMatch qqq = abc.match(TempDataBuffer.left(SegEnd));
+                        if (qqq.hasMatch() == true)
+                        {
+                            qDebug() << "yee";
+                            TempReadings[TempReadingCount].Reading = qqq.captured(3).toFloat();
+                            TempReadings[TempReadingCount].Timestamp = qqq.captured(2).toInt();
+                            TempReadings[TempReadingCount].Type = qqq.captured(4).toInt();
+                            ++TempReadingCount;
+                        }
+
+                        //
+                        TempDataBuffer.remove(0, SegEnd+2);
+                    }
+                }
+//test
+
     }
     else
     {
@@ -145,7 +210,7 @@ void MainWindow::SerialDataWaiting()
     else if (ProgramState == State_DevReadings)
     {
         //Data reading
-        QRegularExpression abc("([0-9])+\\|([0-9])+\\|([0-9\\.])+\\|([0-9])+");
+        QRegularExpression abc("^([0-9]+)\\|([0-9]+)\\|([0-9\\.]+)\\|([0-9]+)$");
         TempDataBuffer.append(SerialData);
         bool Finished = false;
         while (TempDataBuffer.contains("\r\n") == true)
@@ -169,8 +234,8 @@ void MainWindow::SerialDataWaiting()
                 while (i < TempReadingCount)
                 {
                     //
-                    ++i;
                     baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Type)).append("&R").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(TempReadings[i].Timestamp)).append("&"));
+                    ++i;
                 }
 
                 //
