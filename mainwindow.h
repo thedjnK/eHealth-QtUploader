@@ -10,7 +10,10 @@
 #include <QNetworkReply>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
+#include <QFile>
 #include <QDebug>
+
+#include "devicesettings.h"
 
 //Structures
 struct ReadingStruct
@@ -21,8 +24,8 @@ struct ReadingStruct
 };
 
 //Defines
-//#define Hostname "192.168.1.94" //Internal
-#define Hostname "ehealth.noip.me" //External
+#define Hostname "192.168.1.94" //Internal
+//#define Hostname "ehealth.noip.me" //External
 
 //Constants
 const char State_DevID = 1;
@@ -33,7 +36,7 @@ const char State_WebUpload = 4;
 //const char State_ = 3;
 //const char State_ = 3;
 //const char State_ = 3;
-const QString Version = "v0.05";
+const QString Version = "v0.07";
 
 namespace Ui
 {
@@ -47,6 +50,7 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
+    void closeEvent(QCloseEvent *event);
 
 private slots:
     void on_btn_Connect_clicked();
@@ -55,6 +59,9 @@ private slots:
     void on_btn_Login_clicked();
     void sslErrors(QNetworkReply* nrReply, QList<QSslError> lstSSLErrors);
     void replyFinished(QNetworkReply* nrReply);
+    void on_btn_DevConfig_clicked();
+    void SaveDeviceConfig();
+    void LoadDeviceConfig();
 
 private:
     Ui::MainWindow *ui;

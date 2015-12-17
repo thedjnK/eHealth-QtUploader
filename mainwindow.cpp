@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include <QFile>
+
+DeviceSettings *TmpTest;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
@@ -36,6 +37,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         QSslSocket::addDefaultCaCertificate(*SSLCertificate);
         certFile.close();
     }
+
+//TEST
+    TmpTest = new DeviceSettings;
+    connect(TmpTest, SIGNAL(UpdateConfig()), this, SLOT(SaveDeviceConfig()));
+    connect(TmpTest, SIGNAL(LoadConfig()), this, SLOT(LoadDeviceConfig()));
 }
 
 MainWindow::~MainWindow()
@@ -44,9 +50,23 @@ MainWindow::~MainWindow()
     disconnect(&TimeoutTimer, SIGNAL(timeout()));
     disconnect(NetworkManager, SIGNAL(finished(QNetworkReply*)));
     disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)));
+    disconnect(TmpTest, SIGNAL(UpdateConfig()));
+    disconnect(TmpTest, SIGNAL(LoadConfig()));
+
+    //
+    delete TmpTest;
 
     //
     delete ui;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    //Runs when window is closed (exit application)
+    TmpTest->close();
+
+    //Accept close event
+    event->accept();
 }
 
 void MainWindow::RefreshSerial()
@@ -340,4 +360,20 @@ void MainWindow::sslErrors(QNetworkReply* nrReply, QList<QSslError> lstSSLErrors
         qDebug() << "cert error";
         nrReply->ignoreSslErrors(lstSSLErrors);
     }
+}
+
+void MainWindow::on_btn_DevConfig_clicked()
+{
+    //Show device settings dialogue
+    TmpTest->show();
+}
+
+void MainWindow::SaveDeviceConfig()
+{
+    //Save configuration to device
+}
+
+void MainWindow::LoadDeviceConfig()
+{
+    //Load configuration from device
 }

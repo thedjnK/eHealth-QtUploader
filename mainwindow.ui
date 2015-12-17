@@ -132,6 +132,19 @@
      <string/>
     </property>
    </widget>
+   <widget class="QPushButton" name="btn_DevConfig">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>10</y>
+      <width>84</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Device config</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
