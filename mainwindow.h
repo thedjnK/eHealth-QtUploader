@@ -26,8 +26,10 @@ struct ReadingStruct
 //Defines
 #define Hostname "192.168.1.94" //Internal
 //#define Hostname "ehealth.noip.me" //External
+#define SettingsFilename "eHealth.ini" //
 
 //Constants
+const char State_Idle = 0;
 const char State_DevID = 1;
 const char State_DevReadings = 2;
 const char State_WebLogin = 3;
@@ -56,12 +58,13 @@ private slots:
     void on_btn_Connect_clicked();
     void TimeoutTimerTrigger();
     void SerialDataWaiting();
-    void on_btn_Login_clicked();
     void sslErrors(QNetworkReply* nrReply, QList<QSslError> lstSSLErrors);
     void replyFinished(QNetworkReply* nrReply);
     void on_btn_DevConfig_clicked();
     void SaveDeviceConfig();
     void LoadDeviceConfig();
+    void on_btn_Open_clicked();
+    void on_btn_Close_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -72,6 +75,7 @@ private:
     QByteArray TempDataBuffer; //
     QNetworkAccessManager *NetworkManager; //
     QSslCertificate *SSLCertificate; //
+    QString DeviceID; //Holds the ID of the device
 
     //TEMP
     ReadingStruct *TempReadings; //

@@ -15,6 +15,7 @@ class DeviceSettings : public QDialog
 public:
     explicit DeviceSettings(QWidget *parent = 0);
     ~DeviceSettings();
+    void UpdateInputs(QString DevID);
 
 private slots:
     void on_btn_Save_clicked();
@@ -22,7 +23,7 @@ private slots:
     void on_btn_Cancel_clicked();
 
 signals:
-    void UpdateConfig();
+    void UpdateConfig(QString DevID);
     void LoadConfig();
 
 private:

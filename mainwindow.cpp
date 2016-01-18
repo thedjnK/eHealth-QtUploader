@@ -22,7 +22,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     //
     connect(&MainSerialPort, SIGNAL(readyRead()), this, SLOT(SerialDataWaiting()));
 
-
     //Setup QNetwork for Online XCompiler
     NetworkManager = new QNetworkAccessManager();
     connect(NetworkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinished(QNetworkReply*)));
@@ -42,6 +41,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     TmpTest = new DeviceSettings;
     connect(TmpTest, SIGNAL(UpdateConfig()), this, SLOT(SaveDeviceConfig()));
     connect(TmpTest, SIGNAL(LoadConfig()), this, SLOT(LoadDeviceConfig()));
+
+    //Load configuration
+    /*if (QFile::exists(SettingsFilename) == true)
+    {
+        //Settings file exists
+        QFile SettingsFile(SettingsFilename);
+        if (SettingsFile.open(QFile::ReadOnly))
+        {
+            //Opened settings file
+        }
+    }*/
 }
 
 MainWindow::~MainWindow()
@@ -89,34 +99,6 @@ void MainWindow::on_btn_Connect_clicked()
 
     if (ui->combo_Ports->currentText().length() > 0)
     {
-        //
-        MainSerialPort.setPortName(ui->combo_Ports->currentText());
-        MainSerialPort.setBaudRate(QSerialPort::Baud115200);
-        MainSerialPort.setDataBits(QSerialPort::Data8);
-        MainSerialPort.setStopBits(QSerialPort::OneStop);
-        MainSerialPort.setParity(QSerialPort::NoParity);
-        MainSerialPort.setFlowControl(QSerialPort::NoFlowControl); //QSerialPort::HardwareControl
-
-        if (0 == 1 && MainSerialPort.open(QIODevice::ReadWrite))
-        {
-            //Successful
-
-            //DTR
-            MainSerialPort.setDataTerminalReady(true);
-
-                //Not hardware handshaking - RTS
-                //MainSerialPort.setRequestToSend(ui->check_RTS->isChecked());
-
-            //Send wakeup message and start timeout timer
-            ProgramState = State_DevID;
-            TempDataBuffer.clear();
-            TimeoutTimer.start();
-            MainSerialPort.write("ID\r\n");
-        }
-        else
-        {
-            //Error whilst opening
-        }
 
 //TEST
                 //Data reading
@@ -152,7 +134,7 @@ void MainWindow::on_btn_Connect_clicked()
 
                         //
                         ProgramState = State_WebUpload;
-                        QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(ui->edit_Token->text())).append("&RD=").append(QString::number(TempReadingCount))));
+                        QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(this->DeviceID)).append("&RD=").append(QString::number(TempReadingCount))));
                         nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
                         nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
                         NetworkManager->post(nrThisReq, baPostData);
@@ -194,7 +176,9 @@ void MainWindow::TimeoutTimerTrigger()
     qDebug() << "Timeout!";
     MainSerialPort.close();
     ui->combo_Ports->setEnabled(true);
-    ui->btn_Connect->setEnabled(true);
+    ui->btn_Close->setEnabled(false);
+    ui->btn_Open->setEnabled(true);
+    ui->btn_Connect->setEnabled(false);
 }
 
 void MainWindow::SerialDataWaiting()
@@ -217,14 +201,19 @@ void MainWindow::SerialDataWaiting()
         if (TempDataBuffer.contains("\r\n") == true)
         {
             //
-            ui->edit_Log->appendPlainText(QString("Device: ").append(TempDataBuffer.left(TempDataBuffer.size()-2)));
-            ProgramState = State_DevReadings;
+            this->DeviceID = TempDataBuffer.left(TempDataBuffer.size()-2);
+            ui->edit_Log->appendPlainText(QString("Device: ").append(this->DeviceID));
+            TmpTest->UpdateInputs(this->DeviceID);
+            //ProgramState = State_DevReadings;
+            ProgramState = State_Idle;
             TempDataBuffer.clear();
+            ui->btn_Close->setEnabled(true);
+            /*
             TimeoutTimer.start();
             MainSerialPort.write("Read\r\n");
 
             TempReadings = new ReadingStruct[10];
-            TempReadingCount = 0;
+            TempReadingCount = 0;*/
         }
     }
     else if (ProgramState == State_DevReadings)
@@ -260,7 +249,7 @@ void MainWindow::SerialDataWaiting()
 
                 //
                 ProgramState = State_WebUpload;
-                QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(ui->edit_Token->text())).append("&RD=").append(QString::number(TempReadingCount))));
+                QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(this->DeviceID)).append("&RD=").append(QString::number(TempReadingCount))));
                 nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
                 nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
                 NetworkManager->post(nrThisReq, baPostData);
@@ -295,20 +284,6 @@ void MainWindow::SerialDataWaiting()
     }
 }
 
-void MainWindow::on_btn_Login_clicked()
-{
-    //Get token from cloud server
-    ProgramState = State_WebLogin;
-
-    QByteArray baPostData = QString("UN=").append(QUrl::toPercentEncoding(ui->edit_Username->text())).append("&PW=").append(QUrl::toPercentEncoding(ui->edit_Password->text())).toUtf8();
-    QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/token.php")));
-    nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
-    nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
-    NetworkManager->post(nrThisReq, baPostData);
-    ui->label_Loading->setText("LOADING...");
-//    NetworkManager->get(QNetworkRequest(QUrl(QString("https://").append(Hostname).append(":444/token.php?UN=").append(
-}
-
 void MainWindow::replyFinished(QNetworkReply* nrReply)
 {
     //
@@ -322,28 +297,7 @@ void MainWindow::replyFinished(QNetworkReply* nrReply)
     {
         //OK
         qDebug() << "OK:";
-        if (ProgramState == State_WebLogin)
-        {
-            QByteArray RecData = nrReply->readAll();
-            qDebug() << "Token response:";
-            if (RecData.left(2) == "#0")
-            {
-                //Failed
-                qDebug() << "Bad";
-            }
-            else if (RecData.left(3) == "#1:")
-            {
-                //Success
-                ui->edit_Token->setText(RecData.right(RecData.size()-3));
-                qDebug() << "Good";
-            }
-            else
-            {
-                //Unknown
-                qDebug() << "??";
-            }
-        }
-        else if (ProgramState == State_WebUpload)
+        if (ProgramState == State_WebUpload)
         {
             qDebug() << "Upload response: " << nrReply->readAll();
         }
@@ -376,4 +330,64 @@ void MainWindow::SaveDeviceConfig()
 void MainWindow::LoadDeviceConfig()
 {
     //Load configuration from device
+    if (ProgramState == State_Idle)
+    {
+        //
+        ProgramState = State_DevID;
+        TempDataBuffer.clear();
+        TimeoutTimer.start();
+        MainSerialPort.write("ID\r\n");
+    }
+}
+
+void MainWindow::on_btn_Open_clicked()
+{
+    //Open serial port
+    if (ui->combo_Ports->currentText().length() > 0)
+    {
+        //
+        MainSerialPort.setPortName(ui->combo_Ports->currentText());
+        MainSerialPort.setBaudRate(QSerialPort::Baud115200);
+        MainSerialPort.setDataBits(QSerialPort::Data8);
+        MainSerialPort.setStopBits(QSerialPort::OneStop);
+        MainSerialPort.setParity(QSerialPort::NoParity);
+        MainSerialPort.setFlowControl(QSerialPort::NoFlowControl); //QSerialPort::HardwareControl
+
+        if (MainSerialPort.open(QIODevice::ReadWrite))
+        {
+            //Successful, set DTR
+            //MainSerialPort.setDataTerminalReady(true);
+
+            //Change enabled status of controls
+            ui->combo_Ports->setEnabled(false);
+            ui->btn_Open->setEnabled(false);
+
+                //Not hardware handshaking - RTS
+                //MainSerialPort.setRequestToSend(ui->check_RTS->isChecked());
+
+            //Send wakeup message and start timeout timer
+            ProgramState = State_DevID;
+            TempDataBuffer.clear();
+            TimeoutTimer.start();
+            MainSerialPort.write("ID\r\n");
+        }
+        else
+        {
+            //Error whilst opening
+        }
+    }
+}
+
+void MainWindow::on_btn_Close_clicked()
+{
+    //Close serial port
+    if (MainSerialPort.isOpen())
+    {
+        //Serial port is opened, close it
+        MainSerialPort.close();
+    }
+    ui->btn_Close->setEnabled(false);
+    ui->btn_Open->setEnabled(true);
+    ui->btn_Connect->setEnabled(false);
+    ui->combo_Ports->setEnabled(true);
 }

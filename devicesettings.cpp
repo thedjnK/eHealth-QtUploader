@@ -16,7 +16,7 @@ DeviceSettings::~DeviceSettings()
 void DeviceSettings::on_btn_Save_clicked()
 {
     //Save device settings
-    emit UpdateConfig();
+    emit UpdateConfig(ui->edit_DevID->text());
 }
 
 void DeviceSettings::on_btn_Load_clicked()
@@ -28,4 +28,11 @@ void DeviceSettings::on_btn_Load_clicked()
 void DeviceSettings::on_btn_Cancel_clicked()
 {
     //Cancel (losing changes)
+    this->close();
+}
+
+void DeviceSettings::UpdateInputs(QString DevID)
+{
+    //Updates the input boxes
+    ui->edit_DevID->setText(DevID);
 }
