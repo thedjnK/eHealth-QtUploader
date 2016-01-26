@@ -11,22 +11,26 @@
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 #include <QFile>
+#include <QTime>
+#include <QDateTime>
 #include <QDebug>
-
 #include "devicesettings.h"
 
 //Structures
-struct ReadingStruct
+struct UserReadingsStruct
 {
-    qint32 Timestamp;
+    //QTime ReadingTaken;
+    int ReadingTaken;
     float Reading;
-    char Type;
+    float Reading2;
+    float Reading3;
+    unsigned char ReadingType;
 };
 
 //Defines
 #define Hostname "192.168.1.94" //Internal
 //#define Hostname "ehealth.noip.me" //External
-#define SettingsFilename "eHealth.ini" //
+#define ReadingsBuffer 50
 
 //Constants
 const char State_Idle = 0;
@@ -38,11 +42,7 @@ const char State_ReadBP = 4;
 const char State_UploadBP = 5;
 const char State_ReadSensors = 6;
 const char State_UploadSensors = 7;
-//const char State_ = 3;
-//const char State_ = 3;
-//const char State_ = 3;
-//const char State_ = 3;
-const QString Version = "v0.09b";
+const QString Version = "v0.10";
 
 namespace Ui
 {
@@ -59,7 +59,6 @@ public:
     void closeEvent(QCloseEvent *event);
 
 private slots:
-    void on_btn_Connect_clicked();
     void TimeoutTimerTrigger();
     void SerialDataWaiting();
     void sslErrors(QNetworkReply* nrReply, QList<QSslError> lstSSLErrors);
@@ -88,10 +87,10 @@ private:
     QNetworkAccessManager *NetworkManager; //
     QSslCertificate *SSLCertificate; //
     QString DeviceID; //Holds the ID of the device
-
-    //TEMP
-    ReadingStruct *TempReadings; //
-    int TempReadingCount; //
+    DeviceSettings *TmpTest;
+    UserReadingsStruct *UserReadings[ReadingsBuffer];
+    int UserReadingsPos;
+    QTimer UserReadingsTimer;
 };
 
 #endif // MAINWINDOW_H

@@ -24,19 +24,6 @@
      </rect>
     </property>
    </widget>
-   <widget class="QPushButton" name="btn_Connect">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>50</y>
-      <width>84</width>
-      <height>33</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Upload Data</string>
-    </property>
-   </widget>
    <widget class="QPlainTextEdit" name="edit_Log">
     <property name="geometry">
      <rect>
@@ -196,7 +183,6 @@
  <layoutdefault spacing="6" margin="11"/>
  <tabstops>
   <tabstop>combo_Ports</tabstop>
-  <tabstop>btn_Connect</tabstop>
   <tabstop>edit_Log</tabstop>
  </tabstops>
  <resources/>
