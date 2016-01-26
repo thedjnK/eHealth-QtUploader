@@ -42,7 +42,7 @@ const char State_UploadSensors = 7;
 //const char State_ = 3;
 //const char State_ = 3;
 //const char State_ = 3;
-const QString Version = "v0.09";
+const QString Version = "v0.09b";
 
 namespace Ui
 {
