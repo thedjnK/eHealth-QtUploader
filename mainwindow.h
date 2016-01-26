@@ -34,11 +34,15 @@ const char State_DevID = 1;
 const char State_DevReadings = 2;
 const char State_WebLogin = 3;
 const char State_WebUpload = 4;
+const char State_ReadBP = 4;
+const char State_UploadBP = 5;
+const char State_ReadSensors = 6;
+const char State_UploadSensors = 7;
 //const char State_ = 3;
 //const char State_ = 3;
 //const char State_ = 3;
 //const char State_ = 3;
-const QString Version = "v0.07";
+const QString Version = "v0.09";
 
 namespace Ui
 {
@@ -65,6 +69,14 @@ private slots:
     void LoadDeviceConfig();
     void on_btn_Open_clicked();
     void on_btn_Close_clicked();
+    void on_btn_ReadBP_clicked();
+    void on_check_ReadSensors_stateChanged(int arg1);
+    void on_btn_En1_clicked();
+    void on_btn_En2_clicked();
+    void on_btn_En3_clicked();
+    void on_btn_En4_clicked();
+    void on_btn_En5_clicked();
+    void SendReadCommand();
 
 private:
     Ui::MainWindow *ui;

@@ -1,7 +1,27 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QTime>
+#include <QDateTime>
+#include <unistd.h>
+
 DeviceSettings *TmpTest;
+
+struct UserReadingsStruct
+{
+    //QTime ReadingTaken;
+    int ReadingTaken;
+    float Reading;
+    float Reading2;
+    float Reading3;
+    unsigned char ReadingType;
+};
+
+#define ReadingsBuffer 50
+
+UserReadingsStruct *UserReadings[ReadingsBuffer];
+int UserReadingsPos;
+QTimer UserReadingsTimer;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
@@ -52,6 +72,23 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             //Opened settings file
         }
     }*/
+
+    //
+    UserReadingsPos = 0;
+    while (UserReadingsPos < ReadingsBuffer)
+    {
+        UserReadings[UserReadingsPos] = new UserReadingsStruct;
+        UserReadings[UserReadingsPos]->Reading = 0;
+        UserReadings[UserReadingsPos]->ReadingTaken = 0;
+        UserReadings[UserReadingsPos]->ReadingType = 0;
+        ++UserReadingsPos;
+    }
+    UserReadingsPos = 0;
+
+    //
+    UserReadingsTimer.setSingleShot(true);
+    UserReadingsTimer.setInterval(1000);
+    connect(&UserReadingsTimer, SIGNAL(timeout()), this, SLOT(SendReadCommand()));
 }
 
 MainWindow::~MainWindow()
@@ -62,6 +99,13 @@ MainWindow::~MainWindow()
     disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)));
     disconnect(TmpTest, SIGNAL(UpdateConfig()));
     disconnect(TmpTest, SIGNAL(LoadConfig()));
+
+    UserReadingsPos = 0;
+    while (UserReadingsPos < ReadingsBuffer)
+    {
+        delete UserReadings[UserReadingsPos];
+        ++UserReadingsPos;
+    }
 
     //
     delete TmpTest;
@@ -192,6 +236,7 @@ void MainWindow::SerialDataWaiting()
 
     //
     QByteArray SerialData = MainSerialPort.readAll();
+    qDebug() << "Read: " << SerialData;
 
     //Newline found
     if (ProgramState == State_DevID)
@@ -282,6 +327,156 @@ void MainWindow::SerialDataWaiting()
             TimeoutTimer.start();
         }
     }
+    else if (ProgramState == State_ReadBP)
+    {
+        //
+        QRegularExpression abc("^([0-9]+)\\|([0-9]+)\\|([0-9]+),([0-9]+),([0-9]+)\\|([0-9]+)$");
+        TempDataBuffer.append(SerialData);
+        bool Finished = false;
+        while (TempDataBuffer.contains("\r\n") == true)
+        {
+            //
+            int SegEnd = TempDataBuffer.indexOf("\r\n");
+
+            //
+            ui->edit_Log->appendPlainText(QString("Segment: ").append(TempDataBuffer.left(SegEnd)));
+            bool DoUpload = false;
+
+            if (TempDataBuffer.left(SegEnd) == "EOF")
+            {
+                //
+                ui->edit_Log->appendPlainText("Finished.");
+                qDebug() << "Finished @ " << UserReadingsPos;
+                Finished = true;
+                TempDataBuffer.clear();
+                ProgramState = State_Idle;
+                DoUpload = true;
+            }
+            else
+            {
+                //
+                QRegularExpressionMatch qqq = abc.match(TempDataBuffer.left(SegEnd));
+                if (qqq.hasMatch() == true)
+                {
+                    qDebug() << "yee @ " << UserReadingsPos;
+
+                    UserReadings[UserReadingsPos]->Reading = qqq.captured(3).toFloat();
+                    UserReadings[UserReadingsPos]->Reading2 = qqq.captured(4).toFloat();
+                    UserReadings[UserReadingsPos]->Reading3 = qqq.captured(5).toFloat();
+                    UserReadings[UserReadingsPos]->ReadingTaken = qqq.captured(2).toInt();
+                    UserReadings[UserReadingsPos]->ReadingType = qqq.captured(6).toInt();
+                    ++UserReadingsPos;
+                }
+
+                //
+                TempDataBuffer.remove(0, SegEnd+2);
+            }
+
+            if (UserReadingsPos > 30 || DoUpload == true)
+            {
+                int i = 0;
+                QByteArray baPostData;
+                while (i < UserReadingsPos)
+                {
+                    if (UserReadings[i]->ReadingType == 4)
+                    {
+                        baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingType)).append("&R").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->Reading)).append("&R").append(QString::number(i)).append("b=").append(QString::number(UserReadings[i]->Reading2)).append("&R").append(QString::number(i)).append("c=").append(QString::number(UserReadings[i]->Reading3)).append("&A").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingTaken)).append("&"));
+                    }
+                    else
+                    {
+                        baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingType)).append("&R").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingTaken)).append("&"));
+                    }
+                    ++i;
+                }
+
+            //
+                qDebug() << "Token: " << this->DeviceID;
+                QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(this->DeviceID)).append("&RD=").append(QString::number(UserReadingsPos))));
+                nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+                nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+                NetworkManager->post(nrThisReq, baPostData);
+                ui->label_Loading->setText("LOADING...");
+                qDebug() << baPostData;
+
+                UserReadingsPos = 0;
+            }
+        }
+
+        if (Finished == false)
+        {
+            TimeoutTimer.start();
+        }
+    }
+    else if (ProgramState == State_ReadSensors)
+    {
+        //
+        QRegularExpression abc("^([0-9]+)\\|([0-9]+)\\|([0-9\\.]+)\\|([0-9]+)$");
+        TempDataBuffer.append(SerialData);
+        bool Finished = false;
+        while (TempDataBuffer.contains("\r\n") == true)
+        {
+            //
+            int SegEnd = TempDataBuffer.indexOf("\r\n");
+
+            //
+            ui->edit_Log->appendPlainText(QString("Segment: ").append(TempDataBuffer.left(SegEnd)));
+
+            if (TempDataBuffer.left(SegEnd) == "EOF")
+            {
+                //
+                ui->edit_Log->appendPlainText("Finished.");
+                qDebug() << "Finished @ " << UserReadingsPos;
+                Finished = true;
+                TempDataBuffer.clear();
+                UserReadingsTimer.start();
+            }
+            else
+            {
+                //
+                QRegularExpressionMatch qqq = abc.match(TempDataBuffer.left(SegEnd));
+                if (qqq.hasMatch() == true)
+                {
+                    qDebug() << "yee @ " << UserReadingsPos;
+
+                    UserReadings[UserReadingsPos]->Reading = qqq.captured(3).toFloat();
+                    UserReadings[UserReadingsPos]->ReadingTaken = (int)(QDateTime::currentMSecsSinceEpoch()/1000);
+                    UserReadings[UserReadingsPos]->ReadingType = qqq.captured(4).toInt();
+                    ++UserReadingsPos;
+                }
+
+                //
+                TempDataBuffer.remove(0, SegEnd+2);
+            }
+
+            if (UserReadingsPos > 30)
+            {
+                int i = 0;
+                QByteArray baPostData;
+                while (i < UserReadingsPos)
+                {
+                    baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingType)).append("&R").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingTaken)).append("&"));
+                    ++i;
+                }
+
+            //
+            //ProgramState = State_WebUpload;
+                qDebug() << "Token: " << this->DeviceID;
+                QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(this->DeviceID)).append("&RD=").append(QString::number(UserReadingsPos))));
+                nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+                nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+                NetworkManager->post(nrThisReq, baPostData);
+                ui->label_Loading->setText("LOADING...");
+                qDebug() << baPostData;
+
+                UserReadingsPos = 0;
+            }
+        }
+
+        if (Finished == false)
+        {
+            TimeoutTimer.start();
+        }
+    }
 }
 
 void MainWindow::replyFinished(QNetworkReply* nrReply)
@@ -297,10 +492,10 @@ void MainWindow::replyFinished(QNetworkReply* nrReply)
     {
         //OK
         qDebug() << "OK:";
-        if (ProgramState == State_WebUpload)
-        {
+        //if (ProgramState == State_WebUpload)
+        //{
             qDebug() << "Upload response: " << nrReply->readAll();
-        }
+        //}
     }
     nrReply->deleteLater();
 }
@@ -390,4 +585,96 @@ void MainWindow::on_btn_Close_clicked()
     ui->btn_Open->setEnabled(true);
     ui->btn_Connect->setEnabled(false);
     ui->combo_Ports->setEnabled(true);
+}
+
+void MainWindow::on_btn_ReadBP_clicked()
+{
+    //
+    ProgramState = State_ReadBP;
+    TempDataBuffer.clear();
+    //TimeoutTimer.start();
+    MainSerialPort.write("Rd#2\r\n");
+//State_UploadBP
+//State_UploadSensors
+}
+
+void MainWindow::on_check_ReadSensors_stateChanged(int arg1)
+{
+    //
+    if (ui->check_ReadSensors->isChecked() == true)
+    {
+        //
+        ProgramState = State_ReadSensors;
+        TempDataBuffer.clear();
+        //TimeoutTimer.start();
+//        MainSerialPort.write("EnA\r\n");
+//        MainSerialPort.write("EnB\r\n");
+//        MainSerialPort.write("EnC\r\n");
+//        MainSerialPort.write("EnD\r\n");
+//        MainSerialPort.write("EnE\r\n");
+//        MainSerialPort.write("EnF\r\n");
+        MainSerialPort.write("Rd#1\r\n");
+        qDebug() << "Wrote all.";
+    }
+    else
+    {
+        //
+//TODO: Upload readings read but not uploaded
+        ProgramState = State_Idle;
+        if (UserReadingsTimer.isActive())
+        {
+            UserReadingsTimer.stop();
+        }
+
+            int i = 0;
+            QByteArray baPostData;
+            while (i < UserReadingsPos)
+            {
+                baPostData.append(QString("T").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingType)).append("&R").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->Reading)).append("&A").append(QString::number(i)).append("=").append(QString::number(UserReadings[i]->ReadingTaken)).append("&"));
+                ++i;
+            }
+
+        //
+        //ProgramState = State_WebUpload;
+            qDebug() << "Token: " << this->DeviceID;
+            QNetworkRequest nrThisReq(QUrl(QString("https://").append(Hostname).append(":444/upload.php?TK=").append(QUrl::toPercentEncoding(this->DeviceID)).append("&RD=").append(QString::number(UserReadingsPos))));
+            nrThisReq.setRawHeader("Content-Type", QString("application/x-www-form-urlencoded").toUtf8());
+            nrThisReq.setRawHeader("Content-Length", QString(baPostData.length()).toUtf8());
+            NetworkManager->post(nrThisReq, baPostData);
+            ui->label_Loading->setText("LOADING...");
+            qDebug() << baPostData;
+
+            UserReadingsPos = 0;
+    }
+}
+
+void MainWindow::on_btn_En1_clicked()
+{
+    MainSerialPort.write("EnA\r\n");
+}
+
+void MainWindow::on_btn_En2_clicked()
+{
+    MainSerialPort.write("EnB\r\n");
+}
+
+void MainWindow::on_btn_En3_clicked()
+{
+    MainSerialPort.write("EnC\r\n");
+}
+
+void MainWindow::on_btn_En4_clicked()
+{
+    MainSerialPort.write("EnD\r\n");
+}
+
+void MainWindow::on_btn_En5_clicked()
+{
+    MainSerialPort.write("EnE\r\n");
+}
+
+void MainWindow::SendReadCommand()
+{
+    TempDataBuffer.clear();
+    MainSerialPort.write("Rd#1\r\n");
 }
