@@ -108,8 +108,7 @@ void MainWindow::TimeoutTimerTrigger()
     qDebug() << "Timeout!";
     MainSerialPort.close();
     ui->combo_Ports->setEnabled(true);
-    ui->btn_Close->setEnabled(false);
-    ui->btn_Open->setEnabled(true);
+    ui->btn_OpenClose->setText("Open");
 }
 
 void MainWindow::SerialDataWaiting()
@@ -139,7 +138,6 @@ void MainWindow::SerialDataWaiting()
             //ProgramState = State_DevReadings;
             ProgramState = State_Idle;
             TempDataBuffer.clear();
-            ui->btn_Close->setEnabled(true);
             /*
             TimeoutTimer.start();
             MainSerialPort.write("Read\r\n");
@@ -356,55 +354,53 @@ void MainWindow::LoadDeviceConfig()
     }
 }
 
-void MainWindow::on_btn_Open_clicked()
+void MainWindow::on_btn_OpenClose_clicked()
 {
-    //Open serial port
-    if (ui->combo_Ports->currentText().length() > 0)
+    if (MainSerialPort.isOpen() == true)
     {
-        //
-        MainSerialPort.setPortName(ui->combo_Ports->currentText());
-        MainSerialPort.setBaudRate(QSerialPort::Baud115200);
-        MainSerialPort.setDataBits(QSerialPort::Data8);
-        MainSerialPort.setStopBits(QSerialPort::OneStop);
-        MainSerialPort.setParity(QSerialPort::NoParity);
-        MainSerialPort.setFlowControl(QSerialPort::NoFlowControl); //QSerialPort::HardwareControl
-
-        if (MainSerialPort.open(QIODevice::ReadWrite))
+        //Close port
+        if (MainSerialPort.isOpen())
         {
-            //Successful, set DTR
-            //MainSerialPort.setDataTerminalReady(true);
-
-            //Change enabled status of controls
-            ui->combo_Ports->setEnabled(false);
-            ui->btn_Open->setEnabled(false);
-
-                //Not hardware handshaking - RTS
-                //MainSerialPort.setRequestToSend(ui->check_RTS->isChecked());
-
-            //Send wakeup message and start timeout timer
-            ProgramState = State_DevID;
-            TempDataBuffer.clear();
-            TimeoutTimer.start();
-            MainSerialPort.write("ID\r\n");
+            //Serial port is opened, close it
+            MainSerialPort.close();
         }
-        else
+        ui->combo_Ports->setEnabled(true);
+        ui->btn_OpenClose->setText("Open");
+    }
+    else
+    {
+        //Open port
+        if (ui->combo_Ports->currentText().length() > 0)
         {
-            //Error whilst opening
+            //
+            MainSerialPort.setPortName(ui->combo_Ports->currentText());
+            MainSerialPort.setBaudRate(QSerialPort::Baud115200);
+            MainSerialPort.setDataBits(QSerialPort::Data8);
+            MainSerialPort.setStopBits(QSerialPort::OneStop);
+            MainSerialPort.setParity(QSerialPort::NoParity);
+            MainSerialPort.setFlowControl(QSerialPort::NoFlowControl); //QSerialPort::HardwareControl
+
+            if (MainSerialPort.open(QIODevice::ReadWrite))
+            {
+                //Successful, set DTR
+                ui->btn_OpenClose->setText("Close");
+                MainSerialPort.setDataTerminalReady(true);
+
+                //Change enabled status of controls
+                ui->combo_Ports->setEnabled(false);
+
+                //Send wakeup message and start timeout timer
+                ProgramState = State_DevID;
+                TempDataBuffer.clear();
+                TimeoutTimer.start();
+                MainSerialPort.write("ID\r\n");
+            }
+            else
+            {
+                //Error whilst opening
+            }
         }
     }
-}
-
-void MainWindow::on_btn_Close_clicked()
-{
-    //Close serial port
-    if (MainSerialPort.isOpen())
-    {
-        //Serial port is opened, close it
-        MainSerialPort.close();
-    }
-    ui->btn_Close->setEnabled(false);
-    ui->btn_Open->setEnabled(true);
-    ui->combo_Ports->setEnabled(true);
 }
 
 void MainWindow::on_btn_ReadBP_clicked()
