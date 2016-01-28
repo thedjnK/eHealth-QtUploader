@@ -42,7 +42,7 @@ const char State_ReadBP = 4;
 const char State_UploadBP = 5;
 const char State_ReadSensors = 6;
 const char State_UploadSensors = 7;
-const QString Version = "v0.11";
+const QString Version = "v0.12";
 
 namespace Ui
 {
@@ -75,6 +75,8 @@ private slots:
     void on_btn_En5_clicked();
     void SendReadCommand();
     void on_btn_OpenClose_clicked();
+    void on_btn_En6_clicked();
+    void on_btn_En7_clicked();
 
 private:
     Ui::MainWindow *ui;

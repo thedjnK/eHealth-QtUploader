@@ -191,7 +191,7 @@ void MainWindow::SerialDataWaiting()
                 TempDataBuffer.remove(0, SegEnd+2);
             }
 
-            if (UserReadingsPos > 30 || DoUpload == true)
+            if (UserReadingsPos > 30 || (DoUpload == true && UserReadingsPos > 0))
             {
                 int i = 0;
                 QByteArray baPostData;
@@ -489,8 +489,19 @@ void MainWindow::on_btn_En5_clicked()
     MainSerialPort.write("EnE\r\n");
 }
 
+void MainWindow::on_btn_En6_clicked()
+{
+    MainSerialPort.write("EnF\r\n");
+}
+
+void MainWindow::on_btn_En7_clicked()
+{
+    MainSerialPort.write("EnG\r\n");
+}
+
 void MainWindow::SendReadCommand()
 {
     TempDataBuffer.clear();
     MainSerialPort.write("Rd#1\r\n");
 }
+

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>392</width>
+    <width>509</width>
     <height>295</height>
    </rect>
   </property>
@@ -162,6 +162,32 @@
     </property>
     <property name="text">
      <string>EnE</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btn_En6">
+    <property name="geometry">
+     <rect>
+      <x>380</x>
+      <y>60</y>
+      <width>51</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>EnF</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btn_En7">
+    <property name="geometry">
+     <rect>
+      <x>440</x>
+      <y>60</y>
+      <width>51</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>EnG</string>
     </property>
    </widget>
   </widget>
