@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 //TEST
     TmpTest = new DeviceSettings;
-    connect(TmpTest, SIGNAL(UpdateConfig()), this, SLOT(SaveDeviceConfig()));
+    //connect(TmpTest, SIGNAL(UpdateConfig()), this, SLOT(SaveDeviceConfig()));
     connect(TmpTest, SIGNAL(LoadConfig()), this, SLOT(LoadDeviceConfig()));
 
     //
@@ -64,7 +64,7 @@ MainWindow::~MainWindow()
     disconnect(&TimeoutTimer, SIGNAL(timeout()));
     disconnect(NetworkManager, SIGNAL(finished(QNetworkReply*)));
     disconnect(NetworkManager, SIGNAL(sslErrors(QNetworkReply*, QList<QSslError>)));
-    disconnect(TmpTest, SIGNAL(UpdateConfig()));
+    //disconnect(TmpTest, SIGNAL(UpdateConfig()));
     disconnect(TmpTest, SIGNAL(LoadConfig()));
 
     UserReadingsPos = 0;
