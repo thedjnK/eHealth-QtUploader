@@ -28,8 +28,8 @@ struct UserReadingsStruct
 };
 
 //Defines
-#define Hostname "192.168.1.94" //Internal
-//#define Hostname "ehealth.noip.me" //External
+//#define Hostname "192.168.1.94" //Internal
+#define Hostname "ehealth.noip.me" //External
 #define ReadingsBuffer 50
 
 //Constants
